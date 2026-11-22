@@ -46,6 +46,7 @@
   },
   "license": "MIT",
   "devDependencies": {
-    "@mariozechner/pi-coding-agent": "^0.69.0"
+    "@mariozechner/pi-coding-agent": "^0.69.0",
+    "@sinclair/typebox": "^0.34.52"
   }
 }

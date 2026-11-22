@@ -134,6 +134,8 @@ IMPORTANT: After calling tool_search, STOP and wait for the result. Do NOT call 
         }),
       }),
       async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+        // MCP and bridge-backed tools may register after turn_start.
+        buildManifest();
         const allNames = new Set(manifest.map(t => t.name));
         const valid: string[] = [];
         const invalid: string[] = [];
