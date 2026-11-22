@@ -20,11 +20,13 @@ import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
 import { Type } from "@sinclair/typebox";
 import { readFileSync } from "fs";
 import { join } from "path";
+import { isDeferredTool } from "./deferred.ts";
 
 const CORE_TOOLS = ["read", "write", "edit", "bash", "grep", "find"];
 
 interface UserConfig {
   alwaysEnabled: string[];
+  deferredTools: string[];
   showToolSearchFooterStatus: boolean;
 }
 
@@ -36,10 +38,13 @@ function readUserConfig(): UserConfig {
       alwaysEnabled: Array.isArray(s.alwaysEnabled)
         ? s.alwaysEnabled.filter((n: unknown): n is string => typeof n === "string")
         : [],
+      deferredTools: Array.isArray(s.deferredTools)
+        ? s.deferredTools.filter((n: unknown): n is string => typeof n === "string")
+        : [],
       showToolSearchFooterStatus: s.showToolSearchFooterStatus !== false && s.showFooterStatus !== false && s.showStatus !== false,
     };
   } catch {}
-  return { alwaysEnabled: [], showToolSearchFooterStatus: true };
+  return { alwaysEnabled: [], deferredTools: [], showToolSearchFooterStatus: true };
 }
 
 export default function toolSearchExtension(pi: ExtensionAPI) {
@@ -50,6 +55,7 @@ export default function toolSearchExtension(pi: ExtensionAPI) {
   const unlocked = new Set<string>();
 
   let showToolSearchFooterStatus = true;
+  let deferredTools: string[] = [];
 
   // ── helpers ────────────────────────────────────────────────────────────────
 
@@ -60,6 +66,13 @@ export default function toolSearchExtension(pi: ExtensionAPI) {
         name: t.name,
         blurb: (t.description ?? "").split(/[.\n]/)[0].trim().slice(0, 80),
       }));
+
+    // In selective mode, newly registered tools are active by default too.
+    if (deferredTools.length) {
+      for (const tool of manifest) {
+        if (!isDeferredTool(tool.name, deferredTools)) unlocked.add(tool.name);
+      }
+    }
   }
 
   function buildDescription(): string {
@@ -75,16 +88,16 @@ export default function toolSearchExtension(pi: ExtensionAPI) {
 
     const parts: string[] = [];
 
-    parts.push(`Enable tools by name before calling them. All tools below are hidden until you enable them here.
+    parts.push(`Search this catalog of every registered tool and enable deferred tools by exact name. Active tools can be called directly.
 
 IMPORTANT: After calling tool_search, STOP and wait for the result. Do NOT call any newly-enabled tool in the same response as tool_search — the tool schema is fixed for the current response, so the call will fail with "Tool not found". Call tool_search alone, then invoke the unlocked tools in your next response.`);
 
     if (active.length) {
-      parts.push(`Already active (do NOT call tool_search for these):\n${activeLines}`);
+      parts.push(`Active tools (call directly; no tool_search needed):\n${activeLines}`);
     }
 
     if (hidden.length) {
-      parts.push(`Available tools (hidden — enable via tool_search):\n${hiddenLines}`);
+      parts.push(`Deferred tools (enable via tool_search):\n${hiddenLines}`);
     }
 
     parts.push(`Pass one or more exact tool names. After enabling, call those tools directly in a SUBSEQUENT response (not the same one as tool_search).`);
@@ -113,7 +126,7 @@ IMPORTANT: After calling tool_search, STOP and wait for the result. Do NOT call 
       name: "tool_search",
       label: "Tool Search",
       description: buildDescription(),
-      promptSnippet: "Enable hidden tools by name. Call tool_search ALONE, then use unlocked tools in next turn. If same-response call fails, retry next turn.",
+      promptSnippet: "Search all registered tools and enable deferred tools by name. Call tool_search ALONE, then use newly enabled tools in next turn.",
       parameters: Type.Object({
         names: Type.Array(Type.String(), {
           description:
@@ -174,12 +187,18 @@ IMPORTANT: After calling tool_search, STOP and wait for the result. Do NOT call 
 
     const config = readUserConfig();
     showToolSearchFooterStatus = config.showToolSearchFooterStatus;
-    for (const name of [...CORE_TOOLS, ...config.alwaysEnabled]) unlocked.add(name);
+    deferredTools = config.deferredTools;
+    if (!deferredTools.length) {
+      for (const name of CORE_TOOLS) unlocked.add(name);
+    }
+    // An explicit alwaysEnabled entry wins over a deferredTools pattern.
+    for (const name of config.alwaysEnabled) unlocked.add(name);
 
     refreshActiveTools(ctx);
 
+    const hiddenCount = manifest.filter(t => !unlocked.has(t.name)).length;
     ctx.ui.notify(
-      `pi-tool-search: ${manifest.length} tools hidden behind tool_search`,
+      `pi-tool-search: ${hiddenCount} tools deferred behind tool_search`,
       "info",
     );
   });

@@ -24,6 +24,9 @@
     "context"
   ],
   "type": "module",
+  "scripts": {
+    "test": "node --experimental-strip-types --test test/*.test.mjs"
+  },
   "files": [
     "extensions/",
     "README.md",
@@ -39,7 +42,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/tuansondinh/pi-tool-search.git"
+    "url": "git+https://github.com/vadv/pi-tool-search.git"
   },
   "license": "MIT",
   "devDependencies": {

@@ -1,5 +1,37 @@
 # pi-tool-search
 
+Selective on-demand tools for Pi. This fork keeps every registered tool in the `tool_search` catalog, while only configured tools are deferred from the initial prompt. With no `deferredTools` setting, upstream behavior is unchanged: non-core tools are hidden.
+
+## Selective mode (vadv fork)
+
+```json
+{
+  "toolSearch": {
+    "deferredTools": [
+      "browser_*",
+      "web_search",
+      "source_check",
+      "fetch_content",
+      "get_search_content",
+      "subagent",
+      "contact_supervisor",
+      "subagent_supervisor"
+    ],
+    "alwaysEnabled": [],
+    "showToolSearchFooterStatus": true
+  }
+}
+```
+
+- `deferredTools` accepts exact names and `*` wildcards.
+- Every other tool stays active, including tools registered later in the session.
+- The `tool_search` catalog lists all tools, both active and deferred.
+- `alwaysEnabled` overrides a matching `deferredTools` pattern.
+- Empty or omitted `deferredTools` preserves the original core-only startup behavior.
+- Activated tools remain active for the rest of the session.
+
+## Upstream behavior
+
 Hide non-core tools behind a manifest-aware `tool_search` gate. Core tools stay enabled by default; everything else can be unlocked on demand. Purpose: reduce prompt context / token usage by avoiding full tool schemas for rarely used tools.
 
 ## Why
@@ -65,9 +97,10 @@ Add a `toolSearch` block to `settings.json`:
 | Key | Default | Description |
 |---|---|---|
 | `alwaysEnabled` | `[]` | Tool names to pre-unlock beyond default core tools (`read`, `write`, `edit`, `bash`, `grep`, `find`) |
+| `deferredTools` | `[]` | Exact names or `*` wildcards to defer; when non-empty, every other tool stays active by default |
 | `showToolSearchFooterStatus` | `true` | Show tool-search `N / total tools` in the footer status bar |
 
-Unknown names in `alwaysEnabled` are silently ignored until they appear in manifest. `alwaysEnabled` is read at each `session_start`, so changes take effect on next session without reinstall. `showToolSearchFooterStatus` is re-read on refresh; set it to `false` to clear/hide the tool-search footer status.
+Unknown names in `alwaysEnabled` are silently ignored until they appear in manifest. `alwaysEnabled` and `deferredTools` are read at each `session_start`, so changes take effect on next session without reinstall. `showToolSearchFooterStatus` is re-read on refresh; set it to `false` to clear/hide the tool-search footer status.
 
 ## Same-response activation caveat
 
